@@ -1,0 +1,27 @@
+{
+  "private": true,
+  "name": "prismata-replay-info",
+  "version": "0.1.0",
+  "description": "Extract information from Prismata replays",
+  "homepage": "https://github.com/plampila/prismata-replay-info#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/plampila/prismata-replay-info.git"
+  },
+  "license": "Unlicense",
+  "author": "Pekka Lampila",
+  "email": "pekka.lampila@iki.fi",
+  "files": [
+    "index.js"
+  ],
+  "main": "index.js",
+  "bin": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "minimist": "^1.2.0",
+    "prismata-replay-parser": "plampila/prismata-replay-parser"
+  },
+  "devDependencies": {}
+}
