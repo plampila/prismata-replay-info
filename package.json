@@ -12,16 +12,24 @@
   "author": "Pekka Lampila",
   "email": "pekka.lampila@iki.fi",
   "files": [
-    "index.js"
+    "lib/"
   ],
-  "main": "index.js",
-  "bin": "index.js",
+  "main": "lib/index.js",
+  "bin": "lib/index.js",
   "scripts": {
+    "build:watch": "tsc --watch",
+    "build": "tsc",
+    "lint": "tslint --project .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "minimist": "^1.2.0",
-    "prismata-replay-parser": "plampila/prismata-replay-parser"
+    "prismata-replay-parser": "file:../prismata-replay-parser"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/minimist": "^1.2.0",
+    "@types/node": "^11.9.0",
+    "tslint": "^5.12.1",
+    "typescript": "^3.3.3"
+  }
 }

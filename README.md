@@ -40,10 +40,10 @@ to that point is presented.
       }
     }
   ],
-  "gameFormat": "versus",
+  "gameFormat": "Versus",
   "timeControl": 45,
   "deck": {
-    "baseSet": "standard",
+    "baseSet": "Standard",
     "randomSet": [
       "Endotherm Kit",
       "Deadeye Operative",
@@ -58,9 +58,9 @@ to that point is presented.
       "Ossified Drone"
     ]
   },
-  "startPosition": "standard",
+  "startPosition": "Standard",
   "result": {
-    "endCondition": "resign",
+    "endCondition": "Resign",
     "winner": "P2"
   },
   "turns": [

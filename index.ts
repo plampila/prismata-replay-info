@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const minimist = require('minimist');
-const zlib = require('zlib');
-const { isDeepStrictEqual } = require('util');
+import * as fs from 'fs';
+import minimist from 'minimist';
+import { isDeepStrictEqual } from 'util';
+import * as zlib from 'zlib';
 
-const { ReplayParser, constants } = require('prismata-replay-parser');
+import { ActionType, EndCondition, GameFormat, Player, ReplayParser } from 'prismata-replay-parser';
+
+const STANDARD = 'Standard';
 
 const STANDARD_BASE_SET = [
     'Engineer',
@@ -18,7 +20,7 @@ const STANDARD_BASE_SET = [
     'Wall',
     'Steelsplitter',
     'Tarsier',
-    'Rhino'
+    'Rhino',
 ];
 
 const STANDARD_START_POSITION = [
@@ -26,27 +28,26 @@ const STANDARD_START_POSITION = [
         units: {
             Drone: 6,
             Engineer: 2,
-        }
+        },
     },
     {
         units: {
             Drone: 7,
             Engineer: 2,
-        }
-    }
+        },
+    },
 ];
 
-function loadSync(file) {
+function loadSync(file: string): Buffer {
     if (file.endsWith('.gz')) {
         return zlib.gunzipSync(fs.readFileSync(file));
     }
     return fs.readFileSync(file);
 }
 
-function getTimeControl(parser) {
-    function isStandard(info) {
-        return info.bankDilution === 0.25 && info.increment === info.initial &&
-            info.increment === info.bank;
+function getTimeControl(parser: ReplayParser): any {
+    function isStandard(info: any): boolean {
+        return info.bankDilution === 0.25 && info.increment === info.initial && info.increment === info.bank;
     }
 
     const p1time = parser.getTimeControl(0);
@@ -62,23 +63,22 @@ function getTimeControl(parser) {
     return isStandard(p1time) ? p1time.increment : p1time;
 }
 
-function getDeck(parser) {
-    function isStandard(set) {
-        return set.length === STANDARD_BASE_SET.length &&
-            !set.some(x => !STANDARD_BASE_SET.includes(x));
+function getDeck(parser: ReplayParser): any {
+    function isStandard(set: string[]): boolean {
+        return set.length === STANDARD_BASE_SET.length && !set.some(x => !STANDARD_BASE_SET.includes(x));
     }
 
-    const p1Deck = parser.getDeck(0);
+    const p1Deck: any = parser.getDeck(0);
     if (isDeepStrictEqual(p1Deck.customSupplies, { Drone: 21 })) {
         delete p1Deck.customSupplies;
     }
     if (isStandard(p1Deck.baseSet)) {
-        p1Deck.baseSet = 'standard';
+        p1Deck.baseSet = STANDARD;
     }
 
-    const p2Deck = parser.getDeck(1);
+    const p2Deck: any = parser.getDeck(1);
     if (isStandard(p2Deck.baseSet)) {
-        p2Deck.baseSet = 'standard';
+        p2Deck.baseSet = STANDARD;
     }
 
     if (isDeepStrictEqual(p1Deck, p2Deck)) {
@@ -87,77 +87,94 @@ function getDeck(parser) {
     return [p1Deck, p2Deck];
 }
 
-function getStartPosition(parser) {
-    if (isDeepStrictEqual([parser.getStartPosition(0), parser.getStartPosition(1)],
-        STANDARD_START_POSITION)) {
-        return 'standard';
+function getStartPosition(parser: ReplayParser): any {
+    const startPosition = [parser.getStartPosition(Player.First), parser.getStartPosition(Player.Second)];
+    if (isDeepStrictEqual(startPosition, STANDARD_START_POSITION)) {
+        return STANDARD;
     }
-    return [parser.getStartPosition(0), parser.getStartPosition(1)];
+    return startPosition;
 }
 
-function collectInfo(data) {
+interface ReplayInfo {
+    code: string;
+    startTime: Date;
+    endTime: Date;
+    serverVersion: number;
+    players: any; // [PlayerInfo, PlayerInfo];
+    gameFormat: string;
+    timeControl: any;
+    deck: any;
+    startPosition: any;
+    result: any;
+    turns: any;
+    parseError?: any;
+}
+
+function collectInfo(data: Buffer): any {
     const parser = new ReplayParser(data);
     const state = parser.state;
 
-    const info = {
+    const info: ReplayInfo = {
         code: parser.getCode(),
         startTime: parser.getStartTime(),
         endTime: parser.getEndTime(),
         serverVersion: parser.getServerVersion(),
-        players: [parser.getPlayerInfo(0), parser.getPlayerInfo(1)],
-        gameFormat: Symbol.keyFor(parser.getGameFormat(data)),
+        players: [parser.getPlayerInfo(Player.First), parser.getPlayerInfo(Player.Second)],
+        gameFormat: GameFormat[parser.getGameFormat()],
         timeControl: getTimeControl(parser),
         deck: getDeck(parser),
         startPosition: getStartPosition(parser),
-        result: {},
-        turns: [],
+        result: {} as any,
+        turns: [] as any,
     };
 
-    const result = parser.getResult(data);
-    info.result.endCondition = Symbol.keyFor(result.endCondition);
+    const result = parser.getResult();
+    info.result.endCondition = EndCondition[result.endCondition];
     switch (result.winner) {
-    case null:
+    case undefined:
         info.result.winner = 'draw';
         break;
-    case 0:
+    case Player.First:
         info.result.winner = 'P1';
         break;
-    case 1:
+    case Player.Second:
         info.result.winner = 'P2';
         break;
     default:
-        throw new Error('Invalid winner.', result.winner);
+        throw new Error(`Invalid winner: ${result.winner}`);
     }
 
-    const supplies = [{}, {}];
-    let turnInfo = {};
+    const supplies: any = [{}, {}];
+    let turnInfo: any = {};
     parser.on('initGameDone', () => {
-        Object.assign(supplies[0], state.supplies[0]);
-        Object.assign(supplies[1], state.supplies[1]);
+        Object.assign(supplies[0], state.getSupplies(Player.First));
+        Object.assign(supplies[1], state.getSupplies(Player.Second));
     });
 
     parser.on('action', type => {
-        if (type !== constants.ACTION_COMMIT_TURN) {
+        if (type !== ActionType.CommitTurn) {
             return;
         }
 
         turnInfo.purchased = [];
         const player = state.activePlayer;
         Object.keys(supplies[player]).forEach(name => {
-            if (supplies[player][name] !== state.supplies[player][name]) {
-                for (let i = 0; i < supplies[player][name] - state.supplies[player][name]; i++) {
+            if (supplies[player][name] !== state.getSupplies(player)[name]) {
+                for (let i = 0; i < supplies[player][name] - state.getSupplies(player)[name]; i++) {
                     turnInfo.purchased.push(name);
                 }
             }
         });
-        Object.assign(supplies[player], state.supplies[player]);
+        Object.assign(supplies[player], state.getSupplies(player));
     });
 
     parser.on('actionDone', type => {
-        if (type === constants.ACTION_COMMIT_TURN) {
-            info.turns.push(turnInfo);
-            turnInfo = {};
+        if (type !== ActionType.CommitTurn) {
+            return;
         }
+
+        info.turns.push(turnInfo);
+        turnInfo = {};
     });
 
     try {
@@ -173,7 +190,7 @@ function collectInfo(data) {
     return info;
 }
 
-async function main() {
+async function main(): Promise<void> {
     const argv = minimist(process.argv.slice(2), { boolean: ['i', 'e'] });
 
     if (argv._.length === 0) {
@@ -186,10 +203,13 @@ async function main() {
         console.error(`Parse error: ${info.parseError.message}`);
         process.exit(2);
     }
-    console.info(JSON.stringify(info, null, argv.i ? 2 : 0));
+    console.info(JSON.stringify(info, undefined, argv.i ? 2 : 0));
 }
 
 if (!module.parent) {
     main()
-        .catch(console.error);
+        .catch(e => {
+            console.error(e);
+            process.exit(3);
+        });
 }
